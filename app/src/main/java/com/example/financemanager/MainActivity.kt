@@ -12,6 +12,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import com.example.financemanager.presentation.HomePage
+import com.example.financemanager.presentation.Statistics
+import com.example.financemanager.presentation.Transaction
 import com.example.financemanager.ui.theme.FinanceManagerTheme
 
 class MainActivity : ComponentActivity() {
@@ -20,7 +22,9 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             FinanceManagerTheme {
-                HomePage("Roshan")
+//                HomePage("Roshan")
+//                Statistics()
+                Transaction()
             }
         }
     }

@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -39,16 +38,15 @@ fun HomePage(name: String) {
             Greeting(name)
             CreditCard()
             Spacer(modifier = Modifier.fillMaxHeight(0.05f))
-            Transactions()
+            TransactionList(modifier = Modifier)
         }
     }
 }
 
 @Composable
 fun Greeting(name:String){
-    Row(modifier = Modifier.fillMaxWidth().fillMaxHeight(0.15f).padding(20.dp).
-    clip(RoundedCornerShape(16.dp)).
-    background(color = Color(0xFF14213d)),
+    Row(modifier = Modifier.fillMaxWidth().padding(20.dp).
+    clip(RoundedCornerShape(16.dp)),
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically){
         Column {
@@ -101,8 +99,8 @@ fun CreditCard(){
 }
 
 @Composable
-fun Transactions(){
-    Box(modifier = Modifier.fillMaxWidth().fillMaxHeight().clip(RoundedCornerShape(36.dp))
+fun TransactionList(modifier: Modifier){
+    Box(modifier = modifier.fillMaxWidth().fillMaxHeight().clip(RoundedCornerShape(36.dp))
         .padding(horizontal = 35.dp, vertical = 16.dp)){
         Column(){
             Text(text = "Recent Transactions",  style = TextStyle(
@@ -120,10 +118,9 @@ fun Transactions(){
 
 @Composable
 fun TransactionItem(){
-    Row(modifier = Modifier.fillMaxWidth().fillMaxHeight(0.1f).clip(RoundedCornerShape(16.dp))
+    Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))
         .padding(vertical = 16.dp),){
         Icon(Icons.Default.ShoppingCart, contentDescription = "")
-        Spacer(Modifier.fillMaxWidth(0.15f))
         Column(){
             Text(text = "Item",  style = TextStyle(
                 fontSize = 25.sp,
