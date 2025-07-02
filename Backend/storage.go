@@ -22,7 +22,10 @@ type Storage interface {
 
 	CreateTransaction(*Transactions) (error)
 	DeleteTransaction(trans *updateTransaction,USER_ID string) (error)
-	GetTransactions(*Account) ([]* Transactions,error) 
+	GetTransactions(*Account) ([]* Transactions,error)
+	getDailyBalance(*Account) ([] *DailyBalance,error)
+
+	GetDailyTransactions(*Account) ([]* DailyTransactions,error) 
 	UpdateBalance(*Account,int) (error)
 }
 
@@ -92,6 +95,8 @@ func (s *PostgresDB) createDayBalanceTable() error {
 		User_ID varchar(250) NOT NULL,
 		balance FLOAT NOT NULL,
 		date DATE NOT NULL,
+
+		CONSTRAINT daybalance_user_date_unique UNIQUE (User_ID, date),
 		FOREIGN KEY (User_ID) REFERENCES Account(User_ID)
 		)
 		`
@@ -107,6 +112,8 @@ func (s *PostgresDB) createDayTransactionsTable() error {
 		User_ID varchar(250) NOT NULL,
 		total FLOAT NOT NULL,
 		date DATE NOT NULL,
+
+		CONSTRAINT daytransactions_user_date_unique UNIQUE (User_ID, date),
 		FOREIGN KEY (User_ID) REFERENCES Account(User_ID)
 		)
 		`
@@ -181,27 +188,28 @@ func (s *PostgresDB) CreateTransaction(trans *Transactions) (error) {
 		trans.Type,
 	)
 	if(err != nil) {
-		fmt.Println(1)
 		return err
 	}
-	query = `update DayTransactions 
-		set total = total + $3
-		where USER_ID = $1 AND
-		Date = $2:: date
-	`
+	query = `
+		INSERT INTO DayTransactions (user_id, date, total)
+		VALUES ($1, $2::date, $3)
+		ON CONFLICT (user_id, date)
+		DO UPDATE
+			SET total = DayTransactions.total + EXCLUDED.total;
+		`
 	_,err = s.db.Exec(query,
 		trans.User_ID,
 		trans.Date.Time,
 		trans.Amount,
 	)
 	if(err != nil) {
-		fmt.Println(2)
 		return err
 	}
-	query = `update DayBalance 
-		set Balance = Balance + $3
-		where USER_ID = $1 AND
-		Date = $2
+	query = `insert into DayBalance (user_id,date,balance)
+			values($1, $2::date, $3)
+			on conflict (user_id,date)
+			do update 
+			set Balance = EXCLUDED.Balance + DayBalance.Balance
 	`
 	_,err = s.db.Exec(query,
 		trans.User_ID,
@@ -265,24 +273,47 @@ func (s *PostgresDB) rollingDayUpdates(User_ID string, startDate CustomDate) err
 	var latestDate CustomDate
 	err := s.db.QueryRow(`SELECT MAX(date) FROM DayBalance WHERE user_id = $1`, User_ID).Scan(&latestDate.Time)
 	if err != nil {
-		fmt.Println("HERE IS THE ISSUE")
-		fmt.Println(err)
+		fmt.Println(1)
 		return err
 	}
 
 	if startDate.Time.Equal(latestDate.Time){
+		var prevBal int64
+		var todayTrans int64
+		if err = s.db.QueryRow(`
+			SELECT balance FROM DayBalance WHERE user_id = $1 AND date = $2`, User_ID, startDate.Time.AddDate(0, 0, -1)).Scan(&prevBal); err != nil {
+				fmt.Println("First Date Entry")
+				return nil
+				// return err
+			}
+		if err = s.db.QueryRow(`
+			SELECT total FROM DayTransactions WHERE user_id = $1 AND date = $2`, User_ID, startDate.Time).Scan(&todayTrans); err != nil {
+				return err
+			}
+		
+		_, err = s.db.Exec(`
+			UPDATE DayBalance
+			SET balance = $3
+			WHERE user_id = $1 AND date = $2
+		`, User_ID, startDate.Time, prevBal+todayTrans)
+		
+		if err != nil {
+			return err
+		}
+			
+		fmt.Println("Not first date entry")
 		return nil
 	}
 
-	for d := startDate.Time; !d.After(latestDate.Time); d = d.AddDate(0, 0, 1) {
+	for d := startDate.Time.AddDate(0,0,1); !d.After(latestDate.Time); d = d.AddDate(0, 0, 1) {
 		var prevBal int64
 		var netChange int64
 
 		err = s.db.QueryRow(`
 			SELECT balance FROM DayBalance WHERE user_id = $1 AND date = $2`, User_ID, d.AddDate(0, 0, -1)).Scan(&prevBal)
 		if err != nil {
+			fmt.Println(1)
 			fmt.Println(err)
-
 			return err
 		}
 
@@ -292,7 +323,7 @@ func (s *PostgresDB) rollingDayUpdates(User_ID string, startDate CustomDate) err
 			fmt.Println(err)
 			return err 
 		}
-		
+		fmt.Println(string(netChange) +"<- ->"+ string(prevBal))
 		_, err = s.db.Exec(`
 			UPDATE DayBalance
 			SET balance = $3
@@ -362,6 +393,51 @@ func (s *PostgresDB) GetAccountByEmail(email string) (*Account,error) {
 	return account,nil
 }
 // func (s *PostgresDB) (){}
+
+func (s *PostgresDB) GetDailyTransactions(acc *Account) ([]* DailyTransactions,error) {
+	query := `select date,total from daytransactions where user_id = $1`
+	rows,err := s.db.Query(query,acc.User_ID)
+	if(err != nil){
+		return nil,err
+	}
+	dailyTrans := []*DailyTransactions{}
+	for(rows.Next()){
+		todayTrans := new(DailyTransactions)
+		err := rows.Scan(
+			&todayTrans.Date.Time,
+			&todayTrans.Total,
+		)
+		if(err != nil){
+			return nil,err
+		}
+		dailyTrans = append(dailyTrans,todayTrans)
+	}
+	return dailyTrans,nil
+}
+
+func (s *PostgresDB) getDailyBalance(acc *Account) ([] *DailyBalance,error){
+	fmt.Println("Entering sql func")
+	query := `select date,balance from daybalance where user_id = $1`
+	rows,err := s.db.Query(query,acc.User_ID)
+	if(err != nil){
+		fmt.Println(err)
+		return nil,err
+	}
+	dailyBal := []*DailyBalance{}
+	for(rows.Next()){
+		todayBal := new(DailyBalance)
+		err := rows.Scan(
+			&todayBal.Date.Time,
+			&todayBal.Balance,
+		)
+		if(err != nil){
+			fmt.Println(err)
+			return nil,err
+		}
+		dailyBal = append(dailyBal,todayBal)
+	}
+	return dailyBal,nil
+}
 
 
 

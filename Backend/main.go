@@ -18,6 +18,6 @@ func main(){
 		ListenAddr: "8000",
 		Store: store,
 	}	
-	seedDB(&server)
+	// seedDB(&server)
 	server.Run()
 }

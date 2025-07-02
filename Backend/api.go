@@ -61,6 +61,9 @@ func (s *APIServer) Run() {
 	r.Get("/transaction/{id}", withJWTAuth(makeHTTPHandlerFunc(s.handleGetTransactions), s.Store))
 	r.Post("/transaction/{id}", withJWTAuth(makeHTTPHandlerFunc(s.handleDeleteTransaction), s.Store))
 
+	r.Get("/balance/{id}",withJWTAuth(makeHTTPHandlerFunc(s.handleGetDailyBalance),s.Store))
+	r.Get("/transactions/{id}",withJWTAuth(makeHTTPHandlerFunc(s.handleGetDailyTransactions),s.Store))
+
 	r.Post("/{id}/balance", withJWTAuth(makeHTTPHandlerFunc(s.handleBalanceUpdate), s.Store))
 
 	http.ListenAndServe(":8000", r)
@@ -148,6 +151,26 @@ func (s *APIServer) handleGetTransactions(w http.ResponseWriter, r *http.Request
 	return WriteJSON(w, http.StatusOK, transactions)
 }
 
+func (s *APIServer) handleGetDailyTransactions(w http.ResponseWriter, r *http.Request) error {
+	account := r.Context().Value("account").(*Account)
+	dailyTransactions,err := s.Store.GetDailyTransactions(account)
+	if(err != nil){
+		return err
+	}
+	return WriteJSON(w,http.StatusOK,dailyTransactions)
+
+}
+
+func (s *APIServer) handleGetDailyBalance(w http.ResponseWriter, r *http.Request) error {
+	account := r.Context().Value("account").(*Account)
+	fmt.Println("entering API")
+	dailyBalance,err := s.Store.getDailyBalance(account)
+	if(err != nil){
+		return err
+	}
+	return WriteJSON(w,http.StatusOK,dailyBalance)
+}
+
 func (s *APIServer) handleLogin(w http.ResponseWriter, r *http.Request) error {
 	loginreq := new(LoginAccReq)
 	if err := json.NewDecoder(r.Body).Decode(loginreq); err != nil {
@@ -226,6 +249,8 @@ func withJWTAuth(handlerFunc http.HandlerFunc, s Storage) http.HandlerFunc {
 		}
 		ctx := context.WithValue(r.Context(), "account", account)
 		r = r.WithContext(ctx)
+		fmt.Println()
+		fmt.Println("JWT Passed")
 		handlerFunc(w, r)
 	}
 }

@@ -31,6 +31,17 @@ type Transactions struct{
 	Type			string		`json:"type"`
 }
 
+type DailyTransactions struct {
+	// User_ID			string		`json:"user_id"`
+	Total 			int			`json:"total"`
+	Date			CustomDate	`json:"date"`
+}
+
+type DailyBalance struct {
+	Balance 		int			`json:"balance"`
+	Date			CustomDate	`json:"date"`
+}
+
 type updateTransaction struct {
 	Email			string		`json:"user_id"`
 	Amount 			int			`json:"amount"`

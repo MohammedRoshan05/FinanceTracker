@@ -7,13 +7,13 @@ import (
 
 func seedDB(s *APIServer){
 	userID := "11ed95f9-fc11-45d8-aacc-adc77d38c9f5"
- 	start := time.Now() 
+ 	start := time.Now().AddDate(0,0,0)
 
   for i := 0; i < 10; i++ {
     d := start.AddDate(0, 0, 0)
     tx := &Transactions{
       User_ID: userID,
-      Amount:  100 + int(i),          
+      Amount:  100,          
       Date:    CustomDate{Time: d},
       Type:    "credit",
     }
