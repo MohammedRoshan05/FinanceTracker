@@ -6,7 +6,6 @@ import (
 	"time"
 
 	_ "github.com/lib/pq"
-	"github.com/pelletier/go-toml/query"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -16,12 +15,13 @@ type PostgresDB struct{
 
 type Storage interface {
 	CreateAccount(*Account) error
-	DeleteAccount(string) error
+	DeleteAccount(*Account) error
 	Login(*LoginAccReq) (error)
 	GetAccountByEmail(string) (*Account,error)
 	GetAccounts() ([]* Account,error)
 
 	CreateTransaction(*Transactions) (error)
+	DeleteTransaction(trans *updateTransaction,USER_ID string) (error)
 	GetTransactions(*Account) ([]* Transactions,error) 
 	UpdateBalance(*Account,int) (error)
 }
@@ -38,13 +38,29 @@ func ConnectDB()(*PostgresDB,error){
 	}
 	return &PostgresDB{
 		db: db,
-		},nil
+	},nil
+}
+
+func (s *PostgresDB) Init() error {
+	if err := s.createAccountTable(); err != nil {
+		return err
 	}
+	if err := s.createTransactionsTable(); err != nil {
+		return err
+	}
+	if err := s.createDayBalanceTable(); err != nil {
+		return err
+	}
+	if err := s.createDayTransactionsTable(); err != nil {
+		return err
+	}
+	return nil
+}
 
 func (s *PostgresDB) createAccountTable() error {
 	query := `create table if not exists Account(
 		id serial primary key,
-		User_ID int unique not null,
+		User_ID varchar(250) unique not null,
 		Email varchar(250),
 		Password varchar(1550),
 		Balance float not null
@@ -57,15 +73,45 @@ func (s *PostgresDB) createTransactionsTable() error {
 	query := `
 	CREATE TABLE IF NOT EXISTS Transactions (
 		id SERIAL PRIMARY KEY,
-		User_ID INT NOT NULL,
-		amount INT NOT NULL,
+		User_ID varchar(250) NOT NULL,
+		amount FLOAT NOT NULL,
 		date DATE NOT NULL,
 		type TEXT NOT NULL,
 		FOREIGN KEY (User_ID) REFERENCES Account(User_ID)
 		)
 		`
-		_, err := s.db.Exec(query)
-		return err
+	_, err := s.db.Exec(query)
+	return err
+}
+
+func (s *PostgresDB) createDayBalanceTable() error {
+	query := `
+
+	CREATE TABLE IF NOT EXISTS DayBalance (
+		id SERIAL PRIMARY KEY,
+		User_ID varchar(250) NOT NULL,
+		balance FLOAT NOT NULL,
+		date DATE NOT NULL,
+		FOREIGN KEY (User_ID) REFERENCES Account(User_ID)
+		)
+		`
+	_, err := s.db.Exec(query)
+	return err
+}
+
+func (s *PostgresDB) createDayTransactionsTable() error {
+	query := `
+
+	CREATE TABLE IF NOT EXISTS DayTransactions (
+		id SERIAL PRIMARY KEY,
+		User_ID varchar(250) NOT NULL,
+		total FLOAT NOT NULL,
+		date DATE NOT NULL,
+		FOREIGN KEY (User_ID) REFERENCES Account(User_ID)
+		)
+		`
+	_, err := s.db.Exec(query)
+	return err
 }
 
 func (s *PostgresDB) CreateAccount(acc *Account) error {
@@ -73,18 +119,31 @@ func (s *PostgresDB) CreateAccount(acc *Account) error {
 	(USER_ID,Email,Password,Balance)
 	values ($1,$2,$3,$4)
 	`
+	fmt.Println("query string formed")
 	_,err := s.db.Exec(query,
 		acc.User_ID,
-		acc.Password,
+		acc.Email,
 		acc.Password,
 		0,
 	)
+	fmt.Println(err )
+	fmt.Println("no error")
 	return err
 }
 
-func (s *PostgresDB) DeleteAccount(Email string) error {
-	query := `delete from account where Email = $1`
-	_,err := s.db.Query(query,Email)
+func (s *PostgresDB) GetAccounts() ([]* Account,error) {
+	return nil,nil
+}
+
+func (s *PostgresDB) DeleteAccount(acc *Account) error {
+	query := `delete from Transactions where USER_ID = $1`
+	_,err := s.db.Query(query,acc.User_ID)
+	if(err != nil) {
+		return err
+	}
+
+	query = `delete from Account where Email = $1`
+	_,err = s.db.Query(query,acc.Email)
 	return err
 }
 
@@ -110,6 +169,7 @@ func (s *PostgresDB) Login(req *LoginAccReq) (error) {
 
 
 func (s *PostgresDB) CreateTransaction(trans *Transactions) (error) {
+
 	query := `insert into Transactions
 		(User_ID,amount,date,type)
 		values($1,$2,$3,$4)
@@ -117,10 +177,134 @@ func (s *PostgresDB) CreateTransaction(trans *Transactions) (error) {
 	_,err := s.db.Exec(query,
 		trans.User_ID,
 		trans.Amount,
-		trans.Date,
+		trans.Date.Time,
 		trans.Type,
 	)
+	if(err != nil) {
+		fmt.Println(1)
+		return err
+	}
+	query = `update DayTransactions 
+		set total = total + $3
+		where USER_ID = $1 AND
+		Date = $2:: date
+	`
+	_,err = s.db.Exec(query,
+		trans.User_ID,
+		trans.Date.Time,
+		trans.Amount,
+	)
+	if(err != nil) {
+		fmt.Println(2)
+		return err
+	}
+	query = `update DayBalance 
+		set Balance = Balance + $3
+		where USER_ID = $1 AND
+		Date = $2
+	`
+	_,err = s.db.Exec(query,
+		trans.User_ID,
+		trans.Date.Time,
+		trans.Amount,
+	)
+	if(err != nil) {
+		fmt.Println(3)
+		return err
+	}
+	err = s.rollingDayUpdates(trans.User_ID,trans.Date)
 	return err
+}
+
+func (s *PostgresDB) DeleteTransaction(trans *updateTransaction,USER_ID string) (error) {
+	query := `delete from Transactions where 
+	USER_ID = $1 AND
+	Amount = $2 AND
+	Date = $3 AND
+	Type = $4
+	`
+	_,err := s.db.Query(query,
+		USER_ID,
+		trans.Amount,
+		trans.Date.Time,
+		trans.Type,
+	)
+	if(err != nil){
+		return err
+	}
+
+	query = `update DayTransactions 
+		set total = total - $3
+		where USER_ID = $1 AND
+		Day = $2
+	`
+	_,err = s.db.Exec(query,
+		USER_ID,
+		trans.Date,
+		trans.Amount,
+	)
+
+	query = `update DayBalance 
+		set Balance = Balance - $3
+		where USER_ID = $1 AND
+		Day = $2
+	`
+		_,err = s.db.Exec(query,
+		USER_ID,
+		trans.Date,
+		trans.Amount,
+	)
+	err = s.rollingDayUpdates(USER_ID,trans.Date)
+
+	return nil
+}
+
+func (s *PostgresDB) rollingDayUpdates(User_ID string, startDate CustomDate) error {
+	fmt.Println("entering rolling")
+	startDate.Time = startDate.Time.Truncate(24 * time.Hour)
+	var latestDate CustomDate
+	err := s.db.QueryRow(`SELECT MAX(date) FROM DayBalance WHERE user_id = $1`, User_ID).Scan(&latestDate.Time)
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
+
+	if startDate.Time.Equal(latestDate.Time){
+		return nil
+	}
+
+	for d := startDate.Time; !d.After(latestDate.Time); d = d.AddDate(0, 0, 1) {
+		var prevBal int64
+		var netChange int64
+
+		err = s.db.QueryRow(`
+			SELECT balance FROM DayBalance WHERE user_id = $1 AND date = $2`, User_ID, d.AddDate(0, 0, -1)).Scan(&prevBal)
+		if err != nil {
+			fmt.Println(err)
+
+			return err
+		}
+
+		err = s.db.QueryRow(`
+			SELECT total FROM DayTransactions WHERE user_id = $1 AND date = $2`, User_ID, d).Scan(&netChange)
+		if err != nil {
+			fmt.Println(err)
+			return err 
+		}
+		
+		_, err = s.db.Exec(`
+			UPDATE DayBalance
+			SET balance = $3
+			WHERE user_id = $1 AND date = $2
+		`, User_ID, d, prevBal+netChange)
+		
+		if err != nil {
+			fmt.Println(err)
+			return err
+
+		}
+	}
+	return nil
 }
 
 
@@ -138,7 +322,7 @@ func (s *PostgresDB) GetTransactions(acc *Account) ([]* Transactions,error) {
 			&transaction.ID,
 			&transaction.User_ID,
 			&transaction.Amount,
-			&transaction.Date,
+			&transaction.Date.Time,
 			&transaction.Type,
 		)
 		if(err != nil){
@@ -163,16 +347,17 @@ func (s *PostgresDB) UpdateBalance(acc *Account,due int) (error) {
 func (s *PostgresDB) GetAccountByEmail(email string) (*Account,error) {
 	query := `select USER_ID, Email, Balance from account where Email = $1`
 	row := s.db.QueryRow(query,email)
-
 	account := new(Account)
 	err := row.Scan(
 		&account.User_ID,
-		&account.Password,
+		&account.Email,
 		&account.Balance,
 	)
 	if(err != nil){
+		fmt.Println(err)
 		return nil,err
 	}
+
 	return account,nil
 }
 // func (s *PostgresDB) (){}
