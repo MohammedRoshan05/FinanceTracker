@@ -265,6 +265,7 @@ func (s *PostgresDB) rollingDayUpdates(User_ID string, startDate CustomDate) err
 	var latestDate CustomDate
 	err := s.db.QueryRow(`SELECT MAX(date) FROM DayBalance WHERE user_id = $1`, User_ID).Scan(&latestDate.Time)
 	if err != nil {
+		fmt.Println("HERE IS THE ISSUE")
 		fmt.Println(err)
 		return err
 	}
