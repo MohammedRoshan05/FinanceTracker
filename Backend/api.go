@@ -62,7 +62,7 @@ func (s *APIServer) Run() {
 
 	r.Post("/transaction/{id}", withJWTAuth(makeHTTPHandlerFunc(s.handleNewTransaction), s.Store))
 	r.Get("/transaction/{id}", withJWTAuth(makeHTTPHandlerFunc(s.handleGetTransactions), s.Store))
-	r.Post("/transaction/{id}", withJWTAuth(makeHTTPHandlerFunc(s.handleDeleteTransaction), s.Store))
+	// r.Post("/transaction/{id}", withJWTAuth(makeHTTPHandlerFunc(s.handleDeleteTransaction), s.Store))
 
 	r.Get("/balance/{id}",withJWTAuth(makeHTTPHandlerFunc(s.handleGetDailyBalance),s.Store))
 	r.Get("/transactions/{id}",withJWTAuth(makeHTTPHandlerFunc(s.handleGetDailyTransactions),s.Store))
@@ -124,6 +124,7 @@ func (s *APIServer) handleNewTransaction(w http.ResponseWriter, r *http.Request)
 		Date:    newTransReq.Date,
 		Type:    newTransReq.Type,
 	}
+	fmt.Println("Created Transaction")
 	if err := s.Store.CreateTransaction(&transaction); err != nil {
 		fmt.Println(err)
 		return err
@@ -180,7 +181,7 @@ func (s *APIServer) handleLogin(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	println("Login Req")
-	println(loginreq)
+	println(loginreq.Email + loginreq.Password)
 	if err := s.Store.Login(loginreq); err != nil {
 		return err
 	}
@@ -201,6 +202,7 @@ func makeHTTPHandlerFunc(f APIFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if err := f(w, r); err != nil {
 			//error response
+			fmt.Println(err)
 			WriteJSON(w, http.StatusBadRequest, APIError{Error: "Invalid Login Credentials"})
 		}
 	}

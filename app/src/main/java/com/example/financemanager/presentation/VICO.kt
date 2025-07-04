@@ -5,6 +5,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import com.example.financemanager.data.MyViewModel
 import com.patrykandpatrick.vico.compose.cartesian.CartesianChartHost
 import com.patrykandpatrick.vico.compose.cartesian.axis.rememberBottom
 import com.patrykandpatrick.vico.compose.cartesian.axis.rememberStart
@@ -26,13 +27,15 @@ private fun JetpackComposeBasicLineChart(
         rememberCartesianChart(
             rememberLineCartesianLayer(),
             startAxis = VerticalAxis.rememberStart(
-                valueFormatter = {context,x,_ ->
-                    "${x.toInt()}"
+                valueFormatter = {_,y,_ ->
+                    "${y.toInt()}"
                 }
             ),
             bottomAxis = HorizontalAxis.rememberBottom(
                 valueFormatter = {context,x,_ ->
-                    "${x.toInt() + 1}"
+                    val epochDay = x.toLong()
+                    val date = java.time.LocalDate.ofEpochDay(epochDay)
+                    date.toString().drop(5) // Format: "MM-DD"
                 },
                 guideline = remember { null },
             ),
@@ -43,12 +46,22 @@ private fun JetpackComposeBasicLineChart(
 }
 
 @Composable
-fun JetpackComposeBasicLineChart(modifier: Modifier = Modifier) {
+fun JetpackComposeBasicLineChart(
+    modifier: Modifier = Modifier,
+    viewModel: MyViewModel
+) {
     val modelProducer = remember { CartesianChartModelProducer() }
-    LaunchedEffect(Unit) {
+    val dataPoints = viewModel.dailyBalance.map { it.date.toEpochDay().toFloat() to it.balance.toFloat() }
+    LaunchedEffect(dataPoints) {
         modelProducer.runTransaction {
-            // Learn more: https://patrykandpatrick.com/vmml6t.
-            lineSeries { series(17, 8, 7, 12, 0, 1, 15, 14, 0, 11, 6, 12, 0, 11, 12, 11) }
+            val xValues = dataPoints.map { it.first }
+            val yValues = dataPoints.map { it.second }
+
+            lineSeries{
+                series(
+                    xValues,yValues
+                )
+            }
         }
     }
     JetpackComposeBasicLineChart(modelProducer, modifier)

@@ -6,7 +6,7 @@ import (
 )
 
 func seedDB(s *APIServer){
-	userID := "11ed95f9-fc11-45d8-aacc-adc77d38c9f5"
+	userID := "b63c5cf4-e318-4ba7-939b-0bd5ad18948d"
  	start := time.Now().AddDate(0,0,0)
 
   for i := 0; i < 10; i++ {

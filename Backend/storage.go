@@ -176,7 +176,7 @@ func (s *PostgresDB) Login(req *LoginAccReq) (error) {
 
 
 func (s *PostgresDB) CreateTransaction(trans *Transactions) (error) {
-
+	fmt.Println(trans)
 	query := `insert into Transactions
 		(User_ID,amount,date,type)
 		values($1,$2,$3,$4)
