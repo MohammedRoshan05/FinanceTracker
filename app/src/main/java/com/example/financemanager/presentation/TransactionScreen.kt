@@ -36,11 +36,13 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-
-//var transType by mutableStateOf(Icons.Default.Add)
+import com.example.financemanager.data.MyViewModel
+import java.time.LocalDate
 
 @Composable
-fun Transaction(){
+fun Transaction(
+    viewModel: MyViewModel,
+){
 
     Box(modifier = Modifier
         .fillMaxSize()
@@ -63,12 +65,14 @@ private fun Header(modifier: Modifier){
     Row(modifier = modifier
         .fillMaxWidth()
         .padding(20.dp)
-        .clip(RoundedCornerShape(16.dp))
-        .background(color = Color.Yellow),
-            horizontalArrangement = Arrangement.SpaceBetween,
+        .clip(RoundedCornerShape(16.dp)),
+//        .background(color = Color.Yellow)
+            horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically){
         Icon(Icons.Default.ArrowBack, contentDescription = "")
-        Text(text = "Add Expense",  style = TextStyle(
+        Spacer(modifier = Modifier.weight(1f))
+        Text(modifier = Modifier.weight(2f),
+            text = "Add Expense",  style = TextStyle(
             fontSize = 25.sp,
             fontWeight = FontWeight.Bold,
         )
@@ -80,16 +84,23 @@ private fun Header(modifier: Modifier){
 fun DateSelect(modifier: Modifier){
     Row(modifier = modifier
         .fillMaxWidth()
-        .background(color = Color(0xFFb6daac)), horizontalArrangement = Arrangement.SpaceEvenly,
+        .background(color = Color(0xFFb6daac)),
+        horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically) {
-        Icon(Icons.Default.DateRange, contentDescription = "")
+        Icon(
+            Icons.Default.DateRange,
+            contentDescription = "",
+            modifier = Modifier.weight(1.5f)
+        )
         Text(
-            text = "$1243",
+            text = "${LocalDate.now()}",
+            modifier = Modifier.weight(2f),
             style = TextStyle(
-                fontSize = 30.sp,
+                fontSize = 22.sp,
                 fontWeight = FontWeight.Bold,
             )
         )
+        Spacer(modifier = Modifier.weight(0.5f))
     }
 }
 

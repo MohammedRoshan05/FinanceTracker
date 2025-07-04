@@ -23,15 +23,18 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.financemanager.data.MyViewModel
 
 
 @Composable
-fun Statistics(){
+fun Statistics(
+    viewModel: MyViewModel,
+){
     Box(modifier = Modifier.fillMaxSize().background(color = Color.White).padding(25.dp), contentAlignment = Alignment.Center){
         Column(modifier = Modifier.fillMaxSize()){
             Header(modifier = Modifier.weight(1f))
             Graph(modifier = Modifier.weight(3f).background(color = Color.Blue))
-            TransactionList(modifier = Modifier.weight(4f))
+            TransactionList(modifier = Modifier.weight(4f),viewModel.todayTransactions)
         }
     }
 }

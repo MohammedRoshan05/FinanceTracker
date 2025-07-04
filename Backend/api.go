@@ -44,7 +44,10 @@ func (s *APIServer) Run() {
 
 	// CORS middleware
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"http://localhost:5173"},
+		AllowedOrigins:   []string{
+			"http://localhost:5173",
+			"http://10.0.2.2:8000",    
+		},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-Custom-Header"},
 		ExposedHeaders:   []string{"Authorization"},
@@ -176,6 +179,8 @@ func (s *APIServer) handleLogin(w http.ResponseWriter, r *http.Request) error {
 	if err := json.NewDecoder(r.Body).Decode(loginreq); err != nil {
 		return err
 	}
+	println("Login Req")
+	println(loginreq)
 	if err := s.Store.Login(loginreq); err != nil {
 		return err
 	}
